@@ -1,0 +1,25 @@
+{
+  "_comment": "Contradictory: has_children=false proposed while children_names also proposed — triggers conflict",
+  "intent": "answer",
+  "updates": [
+    {
+      "field": "has_children",
+      "value_text": null,
+      "value_bool": false,
+      "value_list": null,
+      "confidence": "high",
+      "evidence": "no children"
+    },
+    {
+      "field": "children_names",
+      "value_text": null,
+      "value_bool": null,
+      "value_list": ["Alice", "Bob"],
+      "confidence": "high",
+      "evidence": "Alice and Bob"
+    }
+  ],
+  "ambiguities": [],
+  "conflict_resolution": null,
+  "acknowledgement": "I noticed something that needs clarifying."
+}

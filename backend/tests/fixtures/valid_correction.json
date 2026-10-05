@@ -1,0 +1,17 @@
+{
+  "_comment": "Correction intent — user updates an earlier value",
+  "intent": "correction",
+  "updates": [
+    {
+      "field": "executor.name",
+      "value_text": "Jim Smith",
+      "value_bool": null,
+      "value_list": null,
+      "confidence": "high",
+      "evidence": "Jim Smith"
+    }
+  ],
+  "ambiguities": [],
+  "conflict_resolution": null,
+  "acknowledgement": "Got it, I've updated the executor name."
+}

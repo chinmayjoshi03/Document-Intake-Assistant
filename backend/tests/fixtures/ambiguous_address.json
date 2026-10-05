@@ -1,0 +1,14 @@
+{
+  "_comment": "Address is ambiguous — only a city given, clarification needed",
+  "intent": "answer",
+  "updates": [],
+  "ambiguities": [
+    {
+      "field": "home_address",
+      "reason": "Only a city was given, not a full street address.",
+      "clarifying_question": "Could you share your full street address, including street name and postcode?"
+    }
+  ],
+  "conflict_resolution": null,
+  "acknowledgement": "I need a bit more detail about your address."
+}

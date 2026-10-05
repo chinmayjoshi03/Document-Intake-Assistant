@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document Intake Assistant</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- LLM not-configured banner (hidden by default) -->
+  <div id="llm-banner" class="banner banner-warn" hidden>
+    <strong>⚠ AI service not configured.</strong>
+    Set <code>GEMINI_API_KEY</code> in your <code>.env</code> file,
+    or restart with <code>LLM_PROVIDER=mock</code> to use the offline demo.
+  </div>
+
+  <!-- Fictional document banner — always visible -->
+  <div class="banner banner-disclaimer">
+    ⚠ <strong>FICTIONAL DOCUMENT. NOT LEGAL ADVICE.</strong> For demonstration purposes only.
+  </div>
+
+  <header>
+    <h1>Document Intake Assistant</h1>
+    <p class="subtitle">Personal Wishes Document — conversational intake</p>
+  </header>
+
+  <main class="layout">
+
+    <!-- ===== LEFT: Chat ===== -->
+    <section class="panel panel-chat" aria-label="Conversation">
+      <div class="panel-header">
+        <h2>Conversation</h2>
+        <button id="btn-new-session" class="btn btn-secondary" title="Start a new session">
+          New session
+        </button>
+      </div>
+
+      <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-label="Chat messages">
+        <!-- Messages injected by JS -->
+      </div>
+
+      <!-- Warnings area -->
+      <div id="warnings-area" class="warnings-area" hidden></div>
+
+      <!-- Pending conflict alert -->
+      <div id="conflict-area" class="conflict-area" hidden>
+        <strong>⚠ Conflict detected:</strong>
+        <span id="conflict-text"></span>
+      </div>
+
+      <!-- Loading indicator -->
+      <div id="loading" class="loading" hidden aria-live="polite">
+        <span class="spinner" aria-hidden="true"></span>
+        <span>Thinking…</span>
+      </div>
+
+      <!-- Input area -->
+      <form id="chat-form" class="chat-input-row" autocomplete="off" novalidate>
+        <label for="chat-input" class="sr-only">Type your message</label>
+        <textarea
+          id="chat-input"
+          class="chat-input"
+          rows="2"
+          placeholder="Type your answer…"
+          maxlength="2000"
+          aria-label="Your message"
+        ></textarea>
+        <button type="submit" id="btn-send" class="btn btn-primary" aria-label="Send message">
+          Send
+        </button>
+      </form>
+    </section>
+
+    <!-- ===== RIGHT: State + Draft ===== -->
+    <section class="panel panel-preview" aria-label="Document preview">
+      <div class="tab-bar" role="tablist" aria-label="Preview tabs">
+        <button
+          id="tab-state"
+          class="tab tab-active"
+          role="tab"
+          aria-selected="true"
+          aria-controls="panel-state"
+        >State</button>
+        <button
+          id="tab-draft"
+          class="tab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-draft"
+        >Draft document</button>
+      </div>
+
+      <!-- State tab -->
+      <div id="panel-state" class="tab-panel" role="tabpanel" aria-labelledby="tab-state">
+        <p class="hint">
+          Edit any field directly. Changes go through the same validation as chat messages.
+        </p>
+        <table class="state-table" aria-label="Field values">
+          <thead>
+            <tr>
+              <th scope="col">Field</th>
+              <th scope="col">Value</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody id="state-tbody">
+            <!-- Rows injected by JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Draft tab -->
+      <div id="panel-draft" class="tab-panel" hidden role="tabpanel" aria-labelledby="tab-draft">
+        <div class="draft-disclaimer">
+          ⚠ FICTIONAL DOCUMENT. NOT LEGAL ADVICE. For demonstration purposes only.
+        </div>
+        <pre id="draft-content" class="draft-content" aria-label="Draft document text">
+Loading draft…
+        </pre>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+{
+  "_comment": "Valid response with three fields captured in a single message",
+  "intent": "answer",
+  "updates": [
+    {
+      "field": "full_name",
+      "value_text": "Jane Smith",
+      "value_bool": null,
+      "value_list": null,
+      "confidence": "high",
+      "evidence": "Jane Smith"
+    },
+    {
+      "field": "home_address",
+      "value_text": "12 High Street, London, EC1A 1BB",
+      "value_bool": null,
+      "value_list": null,
+      "confidence": "high",
+      "evidence": "12 High Street, London, EC1A 1BB"
+    },
+    {
+      "field": "executor.name",
+      "value_text": "James Smith",
+      "value_bool": null,
+      "value_list": null,
+      "confidence": "high",
+      "evidence": "James Smith"
+    }
+  ],
+  "ambiguities": [],
+  "conflict_resolution": null,
+  "acknowledgement": "Thanks, I've noted your name, address and executor."
+}

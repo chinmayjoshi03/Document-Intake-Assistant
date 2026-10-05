@@ -1,0 +1,25 @@
+{
+  "_comment": "One unknown field path mixed with one valid update — bad one rejected, good one applied",
+  "intent": "answer",
+  "updates": [
+    {
+      "field": "favourite_colour",
+      "value_text": "blue",
+      "value_bool": null,
+      "value_list": null,
+      "confidence": "high",
+      "evidence": "blue"
+    },
+    {
+      "field": "full_name",
+      "value_text": "Jane Smith",
+      "value_bool": null,
+      "value_list": null,
+      "confidence": "high",
+      "evidence": "Jane Smith"
+    }
+  ],
+  "ambiguities": [],
+  "conflict_resolution": null,
+  "acknowledgement": "Got it."
+}

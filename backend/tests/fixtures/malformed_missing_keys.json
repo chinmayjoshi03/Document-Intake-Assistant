@@ -1,0 +1,4 @@
+{
+  "_comment": "Valid JSON but missing required keys (intent, updates) — Pydantic validation will fail",
+  "raw": "{\"acknowledgement\": \"Sure, noted.\"}"
+}

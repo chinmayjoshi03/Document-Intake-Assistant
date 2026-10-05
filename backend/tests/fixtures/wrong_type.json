@@ -1,0 +1,25 @@
+{
+  "_comment": "Wrong slot type: bool field using value_text slot — should be rejected",
+  "intent": "answer",
+  "updates": [
+    {
+      "field": "has_children",
+      "value_text": "yes",
+      "value_bool": null,
+      "value_list": null,
+      "confidence": "high",
+      "evidence": "yes"
+    },
+    {
+      "field": "full_name",
+      "value_text": "Jane Smith",
+      "value_bool": null,
+      "value_list": null,
+      "confidence": "high",
+      "evidence": "Jane Smith"
+    }
+  ],
+  "ambiguities": [],
+  "conflict_resolution": null,
+  "acknowledgement": "Got it."
+}

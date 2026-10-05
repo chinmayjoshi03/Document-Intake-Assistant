@@ -1,0 +1,17 @@
+{
+  "_comment": "Evidence string not present in the user message — should be rejected as hallucination",
+  "intent": "answer",
+  "updates": [
+    {
+      "field": "full_name",
+      "value_text": "Jane Elizabeth Smith-Johnson",
+      "value_bool": null,
+      "value_list": null,
+      "confidence": "high",
+      "evidence": "Jane Elizabeth Smith-Johnson"
+    }
+  ],
+  "ambiguities": [],
+  "conflict_resolution": null,
+  "acknowledgement": "Got it."
+}

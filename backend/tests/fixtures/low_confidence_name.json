@@ -1,0 +1,23 @@
+{
+  "_comment": "Low-confidence update — should NOT be applied, should surface as ambiguity",
+  "intent": "answer",
+  "updates": [
+    {
+      "field": "full_name",
+      "value_text": "Jane",
+      "value_bool": null,
+      "value_list": null,
+      "confidence": "low",
+      "evidence": "Jane"
+    }
+  ],
+  "ambiguities": [
+    {
+      "field": "full_name",
+      "reason": "Only a first name was given.",
+      "clarifying_question": "Could you please provide your full name, including your surname?"
+    }
+  ],
+  "conflict_resolution": null,
+  "acknowledgement": "I have your first name but need your surname too."
+}
