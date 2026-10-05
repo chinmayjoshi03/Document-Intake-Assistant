@@ -36,15 +36,32 @@ def _build_llm_client() -> Any:
     """
     Instantiate the LLM client based on settings.
 
-    Returns None if provider is 'gemini' but no API key is configured —
-    the app starts normally but chat requests will return llm_not_configured.
+    Returns None if the provider key is missing — the app starts normally
+    but chat requests will return llm_not_configured.
     """
     if settings.llm_provider == "mock":
         from app.llm.mock_client import MockLLMClient
         logger.info("LLM provider: mock (offline mode)")
         return MockLLMClient()
 
-    # Gemini provider
+    # Groq provider
+    if settings.llm_provider == "groq":
+        if not settings.groq_api_key:
+            logger.warning(
+                "LLM_PROVIDER=groq but GROQ_API_KEY is not set. "
+                "Chat will return llm_not_configured until a key is provided."
+            )
+            return None
+        try:
+            from app.llm.groq_client import GroqClient
+            client = GroqClient(settings)
+            logger.info("LLM provider: groq (model=%s)", settings.groq_model)
+            return client
+        except Exception as exc:
+            logger.error("Failed to initialise Groq client: %s", exc)
+            return None
+
+    # Gemini provider (fallback)
     if not settings.gemini_api_key:
         logger.warning(
             "LLM_PROVIDER=gemini but GEMINI_API_KEY is not set. "

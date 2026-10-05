@@ -41,7 +41,7 @@ The core design principle is **"The LLM proposes — code decides"**:
 ┌────────┴──────────┐   ┌──────────┴──────────────────┐
 │    llm/           │   │   documents/renderer.py     │
 │  base.py          │   │   (pure fn, no LLM)         │
-│  gemini_client.py │   └─────────────────────────────┘
+│  groq_client.py   │   └─────────────────────────────┘
 │  mock_client.py   │
 │  prompts.py       │
 └───────────────────┘
@@ -51,7 +51,7 @@ The core design principle is **"The LLM proposes — code decides"**:
 
 1. **`domain/`** contains pure business logic and models. It never imports from `llm/`, `api/`, or `documents/`.
 2. **`documents/`** depends solely on `domain/state.py`. It is a pure, deterministic rendering function with no clock calls or network access.
-3. **`llm/`** depends only on `domain/state.py` (`FieldPath` enum). All LLM SDK dependencies (`google-genai`) are isolated inside `llm/gemini_client.py`.
+3. **`llm/`** depends only on `domain/state.py` (`FieldPath` enum). All LLM SDK dependencies (`openai`) are isolated inside `llm/groq_client.py`.
 4. **`api/`** depends only on `domain/turn.py`, `domain/session.py`, and `app/config.py`. It maps HTTP requests to turn execution and serializes responses.
 
 ---
@@ -68,7 +68,7 @@ document-intake-assistant/
 ├── frontend/
 │   ├── index.html          # Semantic two-column UI layout
 │   ├── styles.css          # Responsive styling (no external CSS framework)
-│   └── app.js              # Thin client API connector (XSS-safe textContent rendering)
+│   └── app.js              # Thin client API connector (markdown rendering, download buttons)
 └── backend/
     ├── requirements.txt
     ├── pytest.ini
@@ -93,10 +93,10 @@ document-intake-assistant/
     │   │   └── renderer.py # Pure Markdown document generator
     │   └── llm/
     │       ├── __init__.py
-    │       ├── base.py     # Extraction schemas, Protocol, error hierarchy
-    │       ├── prompts.py  # Prompt templates and repair prompts
+    │       ├── base.py          # Extraction schemas, Protocol, error hierarchy
+    │       ├── prompts.py       # Prompt templates and repair prompts
     │       ├── mock_client.py   # Offline regex-based heuristic extractor
-    │       └── gemini_client.py # Gemini 2.5 Flash client with repair retry
+    │       └── groq_client.py   # Groq (llama-3.3-70b-versatile) client with repair retry
     └── tests/
         ├── conftest.py     # ScriptedLLMClient and fixture loaders
         ├── fixtures/       # 11 deterministic scenario fixtures
@@ -119,6 +119,7 @@ document-intake-assistant/
 
 - Python 3.9+
 - pip
+- A [Groq API key](https://console.groq.com/keys) (free tier available)
 
 ### Installation
 
@@ -131,17 +132,17 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. Configure environment variables (optional for mock mode):
+2. Configure environment variables:
 
 ```bash
 cp ../.env.example .env
 ```
 
-Edit `.env` if you want to use the live Gemini API:
+Edit `.env` to add your Groq API key:
 ```env
-LLM_PROVIDER=gemini
-GEMINI_API_KEY=your-actual-api-key
-GEMINI_MODEL=gemini-2.5-flash
+LLM_PROVIDER=groq
+GROQ_API_KEY=your-groq-api-key
+GROQ_MODEL=llama-3.3-70b-versatile
 LLM_TIMEOUT_SECONDS=20
 ```
 
@@ -159,13 +160,18 @@ LLM_PROVIDER=mock uvicorn app.main:app --reload --port 8000
 
 Open http://localhost:8000 in your browser.
 
-### 2. Gemini Live Mode
+### 2. Groq Live Mode
 
 ```bash
 cd document-intake-assistant/backend
 source .venv/bin/activate
-GEMINI_API_KEY="your-api-key" LLM_PROVIDER=gemini uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000
 ```
+
+> The `GROQ_API_KEY` and `LLM_PROVIDER` are read from `.env` automatically. You can also pass them inline:
+> ```bash
+> GROQ_API_KEY="gsk_..." LLM_PROVIDER=groq uvicorn app.main:app --reload --port 8000
+> ```
 
 Open http://localhost:8000 in your browser.
 
@@ -173,7 +179,7 @@ Open http://localhost:8000 in your browser.
 
 ## Running Tests
 
-Run the complete test suite (195 tests, zero network calls required):
+Run the complete test suite (zero network calls required):
 
 ```bash
 cd document-intake-assistant/backend
@@ -245,6 +251,9 @@ curl -X PATCH http://localhost:8000/api/sessions/019234ab-cdef-7000-8000-0000000
 
 4. **Pure Document Rendering:**
    The markdown document generator is a deterministic function `render_document(state, date)`. It takes the current state and a date parameter with no hidden dependencies or side effects.
+
+5. **OpenAI-Compatible Groq Integration:**
+   The Groq client uses the `openai` Python SDK pointed at `https://api.groq.com/openai/v1`. This means switching to any other OpenAI-compatible provider (OpenAI, Together AI, etc.) requires only a URL and key change in `.env`.
 
 ---
 

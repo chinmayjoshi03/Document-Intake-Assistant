@@ -4,12 +4,13 @@
  * Architecture: thin client. All business logic lives on the server.
  * The browser only:
  *   1. Calls the REST API
- *   2. Renders the response (escaped — never raw HTML injection)
+ *   2. Renders the response (escaped — never raw HTML injection except
+ *      for our own controlled markdown→HTML converter below)
  *   3. Manages simple UI state (active tab, which field is being edited)
  *
- * Security: user content and model text are always set via textContent,
- * never innerHTML. The draft document is rendered inside a <pre> via
- * textContent. No eval(), no dangerouslySetInnerHTML equivalent.
+ * Security: user content is always set via textContent. The only place
+ * innerHTML is used is our own renderMarkdown() function which escapes
+ * all text before building HTML tags.
  */
 
 "use strict";
@@ -49,17 +50,17 @@ const FIELD_LABELS = {
   "additional_wishes":        "Additional wishes",
 };
 
-// Fields that need a boolean edit control
 const BOOL_FIELDS = new Set(["covers_worldwide_assets", "has_children"]);
-// Fields that need a list edit control (comma-separated)
 const LIST_FIELDS = new Set(["children_names", "specific_gifts"]);
 
 // ---------------------------------------------------------------------------
 // Application state (UI-only — source of truth is the server)
 // ---------------------------------------------------------------------------
 
-let sessionId = null;
-let editingField = null;   // path string of the field currently being edited
+let sessionId    = null;
+let editingField = null;
+let lastFields   = [];         // latest field array from the server
+let lastMarkdown = "";         // latest document markdown from the server
 
 // ---------------------------------------------------------------------------
 // Boot
@@ -69,6 +70,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupTabs();
   setupChatForm();
   setupNewSessionButton();
+  setupDownloadButtons();
 
   await checkHealth();
   await startSession();
@@ -80,13 +82,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 async function checkHealth() {
   try {
-    const res = await API.health();
+    const res  = await API.health();
     const data = await res.json();
     if (!data.llm_configured) {
       document.getElementById("llm-banner").hidden = false;
     }
   } catch {
-    // Health check failure is non-fatal — app continues
+    // Health check failure is non-fatal
   }
 }
 
@@ -97,12 +99,12 @@ async function checkHealth() {
 async function startSession() {
   setLoading(true);
   try {
-    const res = await API.sessions();
+    const res  = await API.sessions();
     const data = await res.json();
     if (data.error) { showInlineError(data.error.message); return; }
     sessionId = data.session_id;
     renderSession(data);
-  } catch (e) {
+  } catch {
     showInlineError("Could not connect to the server. Is it running?");
   } finally {
     setLoading(false);
@@ -113,7 +115,7 @@ async function resetSession() {
   if (!sessionId) return;
   setLoading(true);
   try {
-    const res = await API.reset(sessionId);
+    const res  = await API.reset(sessionId);
     const data = await res.json();
     if (data.error) { showInlineError(data.error.message); return; }
     editingField = null;
@@ -136,7 +138,7 @@ async function sendMessage(text) {
   clearWarnings();
 
   try {
-    const res = await API.message(sessionId, text);
+    const res  = await API.message(sessionId, text);
     const data = await res.json();
 
     if (data.error) {
@@ -145,7 +147,6 @@ async function sendMessage(text) {
     }
 
     renderSession(data);
-    if (data.reply) appendChatBubble("assistant", data.reply);
 
   } catch {
     showInlineError("Network error. Please try again.");
@@ -168,7 +169,7 @@ async function applyDirectEdit(fieldPath, rawValue) {
 
   setLoading(true);
   try {
-    const res = await API.patch(sessionId, [update]);
+    const res  = await API.patch(sessionId, [update]);
     const data = await res.json();
     if (data.error) { showInlineError(data.error.message); return; }
     editingField = null;
@@ -183,10 +184,10 @@ function buildUpdatePayload(fieldPath, rawValue) {
 
   if (BOOL_FIELDS.has(fieldPath)) {
     const lower = trimmed.toLowerCase();
-    if (lower === "true" || lower === "yes") return { field: fieldPath, value_bool: true };
+    if (lower === "true"  || lower === "yes") return { field: fieldPath, value_bool: true  };
     if (lower === "false" || lower === "no")  return { field: fieldPath, value_bool: false };
-    if (trimmed === "") return { field: fieldPath, clear: true };
-    return null;  // invalid bool input — ignore
+    if (trimmed === "")                        return { field: fieldPath, clear: true       };
+    return null;
   }
 
   if (LIST_FIELDS.has(fieldPath)) {
@@ -195,26 +196,126 @@ function buildUpdatePayload(fieldPath, rawValue) {
     return { field: fieldPath, value_list: items };
   }
 
-  // String field
   if (trimmed === "") return { field: fieldPath, clear: true };
   return { field: fieldPath, value_text: trimmed };
 }
 
 // ---------------------------------------------------------------------------
-// Render helpers — all user/model content goes through textContent
+// Markdown renderer
+// A small, safe renderer. All text is HTML-escaped before tagging.
+// Supports: headings (#, ##), bold (**), italic (*), blockquote (>),
+//           unordered lists (-/*), horizontal rules (---), paragraphs.
+// ---------------------------------------------------------------------------
+
+function escHtml(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function inlineMarkdown(text) {
+  // Bold **text**
+  text = escHtml(text)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g,     "<em>$1</em>");
+  return text;
+}
+
+function renderMarkdown(md) {
+  const lines  = md.split("\n");
+  let   html   = "";
+  let   inList = false;
+
+  const closeList = () => { if (inList) { html += "</ul>"; inList = false; } };
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw  = lines[i];
+    const line = raw.trimEnd();
+
+    // Horizontal rule
+    if (/^-{3,}$/.test(line.trim())) {
+      closeList();
+      html += "<hr>";
+      continue;
+    }
+
+    // ATX headings
+    const h2 = line.match(/^##\s+(.+)/);
+    if (h2) { closeList(); html += `<h2>${inlineMarkdown(h2[1])}</h2>`; continue; }
+    const h1 = line.match(/^#\s+(.+)/);
+    if (h1) { closeList(); html += `<h1>${inlineMarkdown(h1[1])}</h1>`; continue; }
+
+    // Blockquote
+    const bq = line.match(/^>\s*(.*)/);
+    if (bq) { closeList(); html += `<blockquote>${inlineMarkdown(bq[1])}</blockquote>`; continue; }
+
+    // List item
+    const li = line.match(/^[-*]\s+(.*)/);
+    if (li) {
+      if (!inList) { html += "<ul>"; inList = true; }
+      html += `<li>${inlineMarkdown(li[1])}</li>`;
+      continue;
+    }
+
+    // Blank line
+    if (line.trim() === "") {
+      closeList();
+      continue;
+    }
+
+    // Paragraph
+    closeList();
+    html += `<p>${inlineMarkdown(line)}</p>`;
+  }
+
+  closeList();
+  return html;
+}
+
+// ---------------------------------------------------------------------------
+// JSON syntax highlighter
+// ---------------------------------------------------------------------------
+
+function highlightJson(obj) {
+  const raw = JSON.stringify(obj, null, 2);
+  return raw.replace(
+    /("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+    (match) => {
+      if (/^"/.test(match)) {
+        if (/:$/.test(match)) return `<span class="json-key">${escHtml(match)}</span>`;
+        return `<span class="json-str">${escHtml(match)}</span>`;
+      }
+      if (/true|false/.test(match)) return `<span class="json-bool">${match}</span>`;
+      if (/null/.test(match))       return `<span class="json-null">${match}</span>`;
+      return `<span class="json-num">${match}</span>`;
+    }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Render helpers
 // ---------------------------------------------------------------------------
 
 function renderSession(data) {
   renderMessages(data.messages || []);
-  renderStateTable(data.fields || []);
+  renderStateTable(data.fields  || []);
   renderDraft(data.document_markdown || "");
   renderWarnings(data.warnings || []);
   renderConflict(data.pending_conflict);
+
+  // Cache for downloads
+  lastFields   = data.fields || [];
+  lastMarkdown = data.document_markdown || "";
+
+  // Update JSON panel if it's visible
+  renderJsonPanel(data.fields || []);
 }
 
 function renderMessages(messages) {
   const container = document.getElementById("chat-messages");
-  container.innerHTML = "";   // safe: we immediately repopulate with textContent
+  container.innerHTML = "";
   for (const msg of messages) {
     appendChatBubble(msg.role, msg.text, container);
   }
@@ -225,8 +326,15 @@ function appendChatBubble(role, text, container) {
   container = container || document.getElementById("chat-messages");
   const div = document.createElement("div");
   div.className = `msg msg-${role === "user" ? "user" : "assistant"}`;
-  // SECURITY: textContent — never innerHTML
-  div.textContent = text;
+
+  if (role === "user") {
+    // User messages: plain text, escape only
+    div.textContent = text;
+  } else {
+    // Assistant messages: render lightweight markdown
+    div.innerHTML = renderMarkdown(text);
+  }
+
   container.appendChild(div);
   scrollChatToBottom();
 }
@@ -237,27 +345,48 @@ function scrollChatToBottom() {
 }
 
 function renderDraft(markdown) {
-  const el = document.getElementById("draft-content");
-  // SECURITY: textContent — user/model text never injected as HTML
-  el.textContent = markdown;
+  const el   = document.getElementById("draft-content");
+  lastMarkdown = markdown;
+  // Render as formatted HTML using our markdown renderer
+  el.innerHTML = renderMarkdown(markdown);
+}
+
+function renderJsonPanel(fields) {
+  const el = document.getElementById("json-content");
+  // Build a clean object from fields
+  const obj = {};
+  for (const f of fields) {
+    // Convert dot-path "executor.name" → nested object
+    const parts = f.path.split(".");
+    let cursor = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!(parts[i] in cursor)) cursor[parts[i]] = {};
+      cursor = cursor[parts[i]];
+    }
+    cursor[parts[parts.length - 1]] = {
+      value:  f.value,
+      status: f.status,
+    };
+  }
+  el.innerHTML = highlightJson(obj);
 }
 
 function renderWarnings(warnings) {
   const area = document.getElementById("warnings-area");
   if (!warnings || warnings.length === 0) {
-    area.hidden = true;
+    area.hidden  = true;
     area.innerHTML = "";
     return;
   }
   area.hidden = false;
-  area.innerHTML = "";  // safe: populated with textContent below
+  area.innerHTML = "";
   const label = document.createElement("strong");
   label.textContent = "⚠ Notes from this turn:";
   area.appendChild(label);
   const ul = document.createElement("ul");
   for (const w of warnings) {
     const li = document.createElement("li");
-    li.textContent = w;  // textContent — safe
+    li.textContent = w;
     ul.appendChild(li);
   }
   area.appendChild(ul);
@@ -267,12 +396,12 @@ function renderConflict(conflict) {
   const area = document.getElementById("conflict-area");
   const span = document.getElementById("conflict-text");
   if (!conflict) {
-    area.hidden = true;
+    area.hidden     = true;
     span.textContent = "";
     return;
   }
-  area.hidden = false;
-  span.textContent = " " + conflict.description;  // textContent — safe
+  area.hidden     = false;
+  span.textContent = " " + conflict.description;
 }
 
 function clearWarnings() {
@@ -286,23 +415,20 @@ function clearWarnings() {
 
 function renderStateTable(fields) {
   const tbody = document.getElementById("state-tbody");
-  tbody.innerHTML = "";  // safe: repopulated with DOM methods
+  tbody.innerHTML = "";
 
   for (const field of fields) {
     const tr = document.createElement("tr");
 
-    // Path cell
     const tdPath = document.createElement("td");
     const pathSpan = document.createElement("span");
-    pathSpan.className = "field-path";
+    pathSpan.className   = "field-path";
     pathSpan.textContent = FIELD_LABELS[field.path] || field.path;
     tdPath.appendChild(pathSpan);
 
-    // Value cell — edit control or display
     const tdVal = document.createElement("td");
     tdVal.appendChild(buildValueCell(field));
 
-    // Status badge cell
     const tdStatus = document.createElement("td");
     tdStatus.appendChild(buildBadge(field.status));
 
@@ -318,51 +444,33 @@ function buildValueCell(field) {
   wrapper.className = "field-edit-row";
 
   if (editingField === field.path) {
-    // Inline edit input
     const input = buildInlineInput(field);
     wrapper.appendChild(input);
 
     const btnSave = document.createElement("button");
-    btnSave.className = "btn btn-ghost";
+    btnSave.className   = "btn btn-ghost";
     btnSave.textContent = "Save";
-    btnSave.addEventListener("click", () => {
-      applyDirectEdit(field.path, input.value);
-    });
+    btnSave.addEventListener("click", () => applyDirectEdit(field.path, input.value));
 
     const btnCancel = document.createElement("button");
-    btnCancel.className = "btn btn-ghost";
-    btnCancel.style.color = "#64748b";
-    btnCancel.textContent = "Cancel";
-    btnCancel.addEventListener("click", () => {
-      editingField = null;
-      renderStateTable(
-        // Re-render with current fields from last known session data
-        // We re-fetch to avoid stale state
-        document.getElementById("state-tbody")
-          .__fields || []
-      );
-      // Simpler: just reload current session
-      refreshSession();
-    });
+    btnCancel.className       = "btn btn-ghost";
+    btnCancel.style.color     = "#64748b";
+    btnCancel.textContent     = "Cancel";
+    btnCancel.addEventListener("click", () => { editingField = null; refreshSession(); });
 
     wrapper.appendChild(btnSave);
     wrapper.appendChild(btnCancel);
-    // Focus input on next tick
     setTimeout(() => input.focus(), 0);
   } else {
-    // Display value + edit button
     const display = document.createElement("span");
-    display.className = "field-value-display" + (field.status === "unknown" ? " field-value-unknown" : "");
+    display.className   = "field-value-display" + (field.status === "unknown" ? " field-value-unknown" : "");
     display.textContent = formatFieldValue(field);
 
     const btnEdit = document.createElement("button");
-    btnEdit.className = "btn btn-ghost";
+    btnEdit.className   = "btn btn-ghost";
     btnEdit.textContent = "Edit";
     btnEdit.setAttribute("aria-label", `Edit ${FIELD_LABELS[field.path] || field.path}`);
-    btnEdit.addEventListener("click", () => {
-      editingField = field.path;
-      refreshSession();
-    });
+    btnEdit.addEventListener("click", () => { editingField = field.path; refreshSession(); });
 
     wrapper.appendChild(display);
     wrapper.appendChild(btnEdit);
@@ -376,13 +484,13 @@ function buildInlineInput(field) {
     const sel = document.createElement("select");
     sel.className = "inline-input";
     const opts = [
-      { value: "", label: "— select —" },
-      { value: "true", label: "Yes" },
-      { value: "false", label: "No" },
+      { value: "",      label: "— select —" },
+      { value: "true",  label: "Yes"         },
+      { value: "false", label: "No"          },
     ];
     for (const o of opts) {
       const opt = document.createElement("option");
-      opt.value = o.value;
+      opt.value       = o.value;
       opt.textContent = o.label;
       if (field.value !== null && field.value !== undefined) {
         if (o.value === String(field.value)) opt.selected = true;
@@ -393,27 +501,20 @@ function buildInlineInput(field) {
   }
 
   const input = document.createElement("input");
-  input.type = "text";
+  input.type      = "text";
   input.className = "inline-input";
 
   if (LIST_FIELDS.has(field.path)) {
     input.placeholder = "comma-separated values";
-    input.value = Array.isArray(field.value) ? field.value.join(", ") : "";
+    input.value       = Array.isArray(field.value) ? field.value.join(", ") : "";
   } else {
-    input.value = field.value !== null && field.value !== undefined ? String(field.value) : "";
+    input.value       = field.value !== null && field.value !== undefined ? String(field.value) : "";
     input.placeholder = "Enter value";
   }
 
-  // Submit on Enter
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      applyDirectEdit(field.path, input.value);
-    }
-    if (e.key === "Escape") {
-      editingField = null;
-      refreshSession();
-    }
+    if (e.key === "Enter")  { e.preventDefault(); applyDirectEdit(field.path, input.value); }
+    if (e.key === "Escape") { editingField = null; refreshSession(); }
   });
 
   return input;
@@ -433,19 +534,69 @@ function formatFieldValue(field) {
 
 function buildBadge(status) {
   const span = document.createElement("span");
-  span.className = `badge badge-${status}`;
+  span.className   = `badge badge-${status}`;
   span.textContent = status.charAt(0).toUpperCase() + status.slice(1);
   return span;
 }
 
 // ---------------------------------------------------------------------------
-// Refresh session from server (used after cancel on inline edit)
+// Download helpers
+// ---------------------------------------------------------------------------
+
+function downloadText(filename, content) {
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadJson(filename, obj) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function setupDownloadButtons() {
+  document.getElementById("btn-download-txt").addEventListener("click", () => {
+    if (!lastMarkdown) return;
+    downloadText("personal-wishes.txt", lastMarkdown);
+  });
+
+  document.getElementById("btn-download-json").addEventListener("click", () => {
+    if (!lastFields.length) return;
+    // Build clean nested object
+    const obj = {};
+    for (const f of lastFields) {
+      const parts = f.path.split(".");
+      let cursor = obj;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!(parts[i] in cursor)) cursor[parts[i]] = {};
+        cursor = cursor[parts[i]];
+      }
+      cursor[parts[parts.length - 1]] = {
+        value:  f.value,
+        status: f.status,
+      };
+    }
+    downloadJson("personal-wishes.json", obj);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Refresh session from server
 // ---------------------------------------------------------------------------
 
 async function refreshSession() {
   if (!sessionId) return;
   try {
-    const res = await API.session(sessionId);
+    const res  = await API.session(sessionId);
     const data = await res.json();
     if (!data.error) renderSession(data);
   } catch { /* silent */ }
@@ -456,14 +607,13 @@ async function refreshSession() {
 // ---------------------------------------------------------------------------
 
 function showInlineError(message) {
-  // Append as a special chat bubble so it's visible in context
   const container = document.getElementById("chat-messages");
   const div = document.createElement("div");
-  div.className = "msg msg-assistant";
-  div.style.background = "#fee2e2";
-  div.style.borderColor = "#fca5a5";
-  div.style.color = "#991b1b";
-  div.textContent = "⚠ " + message;  // textContent — safe
+  div.className            = "msg msg-assistant";
+  div.style.background     = "#fee2e2";
+  div.style.borderColor    = "#fca5a5";
+  div.style.color          = "#991b1b";
+  div.textContent          = "⚠ " + message;
   container.appendChild(div);
   scrollChatToBottom();
 }
@@ -473,15 +623,13 @@ function showInlineError(message) {
 // ---------------------------------------------------------------------------
 
 function setLoading(on) {
-  document.getElementById("loading").hidden = !on;
+  document.getElementById("loading").hidden   = !on;
   document.getElementById("btn-send").disabled = on;
 }
 
 function setInputEnabled(on) {
-  const inp = document.getElementById("chat-input");
-  const btn = document.getElementById("btn-send");
-  inp.disabled = !on;
-  btn.disabled = !on;
+  document.getElementById("chat-input").disabled = !on;
+  document.getElementById("btn-send").disabled   = !on;
 }
 
 function focusChatInput() {
@@ -493,27 +641,23 @@ function focusChatInput() {
 // ---------------------------------------------------------------------------
 
 function setupTabs() {
-  const tabState = document.getElementById("tab-state");
-  const tabDraft = document.getElementById("tab-draft");
-  const panelState = document.getElementById("panel-state");
-  const panelDraft = document.getElementById("panel-draft");
+  const tabs = [
+    { btn: "tab-state", panel: "panel-state" },
+    { btn: "tab-draft", panel: "panel-draft" },
+    { btn: "tab-json",  panel: "panel-json"  },
+  ];
 
-  tabState.addEventListener("click", () => {
-    tabState.classList.add("tab-active");
-    tabState.setAttribute("aria-selected", "true");
-    tabDraft.classList.remove("tab-active");
-    tabDraft.setAttribute("aria-selected", "false");
-    panelState.hidden = false;
-    panelDraft.hidden = true;
-  });
-
-  tabDraft.addEventListener("click", () => {
-    tabDraft.classList.add("tab-active");
-    tabDraft.setAttribute("aria-selected", "true");
-    tabState.classList.remove("tab-active");
-    tabState.setAttribute("aria-selected", "false");
-    panelDraft.hidden = false;
-    panelState.hidden = true;
+  tabs.forEach(({ btn, panel }) => {
+    document.getElementById(btn).addEventListener("click", () => {
+      tabs.forEach(({ btn: b, panel: p }) => {
+        const isActive = b === btn;
+        document.getElementById(b).classList.toggle("tab-active", isActive);
+        document.getElementById(b).setAttribute("aria-selected", String(isActive));
+        document.getElementById(p).hidden = !isActive;
+      });
+      // Refresh JSON content when switching to that tab
+      if (btn === "tab-json") renderJsonPanel(lastFields);
+    });
   });
 }
 
@@ -522,7 +666,7 @@ function setupTabs() {
 // ---------------------------------------------------------------------------
 
 function setupChatForm() {
-  const form = document.getElementById("chat-form");
+  const form  = document.getElementById("chat-form");
   const input = document.getElementById("chat-input");
 
   form.addEventListener("submit", (e) => {
@@ -533,7 +677,6 @@ function setupChatForm() {
     sendMessage(text);
   });
 
-  // Allow Shift+Enter for newline, plain Enter to submit
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();

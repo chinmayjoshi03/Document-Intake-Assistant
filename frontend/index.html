@@ -11,7 +11,7 @@
   <!-- LLM not-configured banner (hidden by default) -->
   <div id="llm-banner" class="banner banner-warn" hidden>
     <strong>⚠ AI service not configured.</strong>
-    Set <code>GEMINI_API_KEY</code> in your <code>.env</code> file,
+    Set <code>GROQ_API_KEY</code> in your <code>.env</code> file,
     or restart with <code>LLM_PROVIDER=mock</code> to use the offline demo.
   </div>
 
@@ -51,8 +51,7 @@
 
       <!-- Loading indicator -->
       <div id="loading" class="loading" hidden aria-live="polite">
-        <span class="spinner" aria-hidden="true"></span>
-        <span>Thinking…</span>
+       
       </div>
 
       <!-- Input area -->
@@ -72,7 +71,7 @@
       </form>
     </section>
 
-    <!-- ===== RIGHT: State + Draft ===== -->
+    <!-- ===== RIGHT: State + Draft + JSON ===== -->
     <section class="panel panel-preview" aria-label="Document preview">
       <div class="tab-bar" role="tablist" aria-label="Preview tabs">
         <button
@@ -89,6 +88,13 @@
           aria-selected="false"
           aria-controls="panel-draft"
         >Draft document</button>
+        <button
+          id="tab-json"
+          class="tab"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-json"
+        >JSON</button>
       </div>
 
       <!-- State tab -->
@@ -112,11 +118,29 @@
 
       <!-- Draft tab -->
       <div id="panel-draft" class="tab-panel" hidden role="tabpanel" aria-labelledby="tab-draft">
-        <div class="draft-disclaimer">
-          ⚠ FICTIONAL DOCUMENT. NOT LEGAL ADVICE. For demonstration purposes only.
+        <div class="draft-toolbar">
+          <span class="draft-disclaimer">
+            ⚠ FICTIONAL DOCUMENT. NOT LEGAL ADVICE. For demonstration purposes only.
+          </span>
+          <button id="btn-download-txt" class="btn btn-secondary btn-sm" title="Download as .txt">
+            ⬇ Download .txt
+          </button>
         </div>
-        <pre id="draft-content" class="draft-content" aria-label="Draft document text">
-Loading draft…
+        <div id="draft-content" class="draft-content" aria-label="Draft document text">
+          <p class="draft-placeholder">Loading draft…</p>
+        </div>
+      </div>
+
+      <!-- JSON tab -->
+      <div id="panel-json" class="tab-panel" hidden role="tabpanel" aria-labelledby="tab-json">
+        <div class="json-toolbar">
+          <span class="json-hint">Structured data extracted from the conversation.</span>
+          <button id="btn-download-json" class="btn btn-secondary btn-sm" title="Download as .json">
+            ⬇ Download .json
+          </button>
+        </div>
+        <pre id="json-content" class="json-content" aria-label="Structured JSON data">
+          <code>{}</code>
         </pre>
       </div>
     </section>
