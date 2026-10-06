@@ -309,8 +309,11 @@ function renderSession(data) {
   lastFields   = data.fields || [];
   lastMarkdown = data.document_markdown || "";
 
-  // Update JSON panel if it's visible
+  // Update JSON panel
   renderJsonPanel(data.fields || []);
+
+  // Update progress bar
+  updateProgress(data.fields || [], data.is_complete || false);
 }
 
 function renderMessages(messages) {
@@ -324,18 +327,42 @@ function renderMessages(messages) {
 
 function appendChatBubble(role, text, container) {
   container = container || document.getElementById("chat-messages");
-  const div = document.createElement("div");
-  div.className = `msg msg-${role === "user" ? "user" : "assistant"}`;
+  const isUser = role === "user";
 
-  if (role === "user") {
-    // User messages: plain text, escape only
+  const row = document.createElement("div");
+  row.className = `msg-row msg-row-${isUser ? "user" : "assistant"}`;
+
+  // Avatar
+  const avatar = document.createElement("div");
+  avatar.className = `msg-avatar ${isUser ? "msg-avatar-user" : "msg-avatar-ai"}`;
+  avatar.textContent = isUser ? "You" : "AI";
+
+  // Bubble wrapper (bubble + timestamp)
+  const wrap = document.createElement("div");
+  wrap.className = "msg-wrap";
+
+  const div = document.createElement("div");
+  div.className = `msg ${isUser ? "msg-user" : "msg-assistant"}`;
+
+  if (isUser) {
     div.textContent = text;
   } else {
-    // Assistant messages: render lightweight markdown
     div.innerHTML = renderMarkdown(text);
   }
 
-  container.appendChild(div);
+  // Timestamp
+  const time = document.createElement("div");
+  time.className = "msg-time";
+  const now = new Date();
+  time.textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  wrap.appendChild(div);
+  wrap.appendChild(time);
+
+  row.appendChild(avatar);
+  row.appendChild(wrap);
+
+  container.appendChild(row);
   scrollChatToBottom();
 }
 
@@ -347,8 +374,10 @@ function scrollChatToBottom() {
 function renderDraft(markdown) {
   const el   = document.getElementById("draft-content");
   lastMarkdown = markdown;
-  // Render as formatted HTML using our markdown renderer
-  el.innerHTML = renderMarkdown(markdown);
+  // Keep the empty state helpful until enough details exist for a draft.
+  el.innerHTML = markdown.trim()
+    ? renderMarkdown(markdown)
+    : '<div class="draft-empty"><span class="draft-empty-icon" aria-hidden="true">✦</span><p>Your document will take shape here as you answer questions.</p><span>Review the Fields tab at any time to make changes directly.</span></div>';
 }
 
 function renderJsonPanel(fields) {
@@ -422,7 +451,7 @@ function renderStateTable(fields) {
 
     const tdPath = document.createElement("td");
     const pathSpan = document.createElement("span");
-    pathSpan.className   = "field-path";
+    pathSpan.className   = "field-label";
     pathSpan.textContent = FIELD_LABELS[field.path] || field.path;
     tdPath.appendChild(pathSpan);
 
@@ -590,6 +619,26 @@ function setupDownloadButtons() {
 }
 
 // ---------------------------------------------------------------------------
+// Progress bar
+// ---------------------------------------------------------------------------
+
+function updateProgress(fields, isComplete) {
+  const total    = fields.length || 9;
+  const done     = fields.filter(f => f.status !== "unknown").length;
+  const pct      = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  const bar   = document.getElementById("progress-bar");
+  const label = document.getElementById("progress-label");
+  const previewStatus = document.getElementById("preview-status");
+  if (bar)   bar.style.width = pct + "%";
+  if (label) label.textContent = isComplete ? "✓ Complete" : `${done} / ${total} fields`;
+  if (previewStatus) {
+    previewStatus.textContent = isComplete ? "Ready to review" : done ? "Draft in progress" : "Live draft";
+    previewStatus.classList.toggle("preview-status-complete", isComplete);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Refresh session from server
 // ---------------------------------------------------------------------------
 
@@ -608,13 +657,26 @@ async function refreshSession() {
 
 function showInlineError(message) {
   const container = document.getElementById("chat-messages");
+  const row = document.createElement("div");
+  row.className = "msg-row msg-row-assistant";
+
+  const avatar = document.createElement("div");
+  avatar.className = "msg-avatar msg-avatar-ai";
+  avatar.textContent = "AI";
+
+  const wrap = document.createElement("div");
+  wrap.className = "msg-wrap";
   const div = document.createElement("div");
-  div.className            = "msg msg-assistant";
-  div.style.background     = "#fee2e2";
-  div.style.borderColor    = "#fca5a5";
-  div.style.color          = "#991b1b";
-  div.textContent          = "⚠ " + message;
-  container.appendChild(div);
+  div.className         = "msg msg-assistant";
+  div.style.background  = "#fee2e2";
+  div.style.borderColor = "#fca5a5";
+  div.style.color       = "#991b1b";
+  div.textContent       = "⚠ " + message;
+  wrap.appendChild(div);
+
+  row.appendChild(avatar);
+  row.appendChild(wrap);
+  container.appendChild(row);
   scrollChatToBottom();
 }
 
@@ -623,7 +685,7 @@ function showInlineError(message) {
 // ---------------------------------------------------------------------------
 
 function setLoading(on) {
-  document.getElementById("loading").hidden   = !on;
+  document.getElementById("loading").hidden    = !on;
   document.getElementById("btn-send").disabled = on;
 }
 
@@ -682,6 +744,11 @@ function setupChatForm() {
       e.preventDefault();
       form.dispatchEvent(new Event("submit"));
     }
+  });
+
+  input.addEventListener("input", () => {
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 128)}px`;
   });
 }
 

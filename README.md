@@ -257,6 +257,97 @@ curl -X PATCH http://localhost:8000/api/sessions/019234ab-cdef-7000-8000-0000000
 
 ---
 
+## UI Walkthrough
+
+The screenshots below show the assistant working through a complete intake session. To reproduce each case, start the app and open http://localhost:8000.
+
+---
+
+### Case 1 — Fresh session greeting
+
+**Input:** Click **New session** (no message typed yet).
+
+The assistant opens with a greeting and asks for the user's full legal name. The Fields table is empty and the progress bar shows **0 / 9 fields**.
+
+![Case 1 – Fresh session greeting](docs/screenshots/01_fresh_session.png)
+
+---
+
+### Case 2 — Single field extracted (name only)
+
+**Input:** `My name is Jane Doe`
+
+The assistant extracts the full name, marks the **full_name** field as confirmed in the Fields tab, advances the progress bar to **1 / 9**, and asks the next question (home address).
+
+![Case 2 – Single field extracted](docs/screenshots/02_name_entered.png)
+
+---
+
+### Case 3 — Multiple fields in one message
+
+**Input:** `I'm John Smith, I live at 42 Elm Street, Springfield, IL 62701 and I do have children`
+
+The assistant extracts three fields at once — **full_name**, **home_address**, and **has_children** — advances the bar to **3 / 9**, and skips directly to the next unanswered question.
+
+![Case 3 – Multiple fields in one message](docs/screenshots/03_multi_field.png)
+
+---
+
+### Case 4 — Conflict detected (contradictory answer)
+
+**Input (first):** `I have no children`  
+**Input (second):** `My daughter Emma and son Leo are my beneficiaries`
+
+The orange **Conflict detected** banner appears below the chat, showing that the new statement contradicts the previously recorded `has_children = false`. The field is not updated until the conflict is resolved.
+
+![Case 4 – Conflict detected](docs/screenshots/04_conflict_detected.png)
+
+---
+
+### Case 5 — Direct field edit via the Fields table
+
+**Action:** Click the **Edit** button next to any filled field in the Fields tab, change the value, and confirm.
+
+The field updates immediately without going through the LLM. This demonstrates the `PATCH /api/sessions/{id}/state` bypass path.
+
+![Case 5 – Direct field edit](docs/screenshots/05_direct_edit.png)
+
+---
+
+### Case 6 — Draft document tab
+
+**Action:** After answering several questions, click the **Draft** tab in the right panel.
+
+A formatted plain-English document is rendered live from the current state. The **Download .txt** button is available at the top.
+
+![Case 6 – Draft document](docs/screenshots/06_draft_tab.png)
+
+---
+
+### Case 7 — JSON structured data tab
+
+**Action:** Click the **JSON** tab in the right panel.
+
+The raw structured state is shown as pretty-printed JSON. The **Download .json** button is available. This is the exact object that the document renderer reads.
+
+![Case 7 – JSON tab](docs/screenshots/07_json_tab.png)
+
+---
+
+### Case 8 — Session complete
+
+**Input:** Complete all nine fields through the conversation (or fill them via the Fields editor).
+
+The progress bar reaches **9 / 9 fields**, the preview status chip changes to **Complete**, and the assistant confirms the document is ready to download.
+
+![Case 8 – Session complete](docs/screenshots/08_session_complete.png)
+
+---
+
+> **To add your screenshots:** create the folder `docs/screenshots/` in the project root, capture each case, and save the files with the names shown above. The images will then render automatically in this README on GitHub.
+
+---
+
 ## Known Limitations
 
 - **In-Memory Session Storage:** Active sessions are held in a memory dictionary protected with `asyncio.Lock`. Server restarts will clear active sessions.

@@ -3,26 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Document Intake Assistant</title>
-  <link rel="stylesheet" href="styles.css" />
+  <title>Personal Wishes Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css?v=20261009" />
 </head>
 <body>
 
-  <!-- LLM not-configured banner (hidden by default) -->
+  <!-- LLM not-configured banner -->
   <div id="llm-banner" class="banner banner-warn" hidden>
-    <strong>⚠ AI service not configured.</strong>
-    Set <code>GROQ_API_KEY</code> in your <code>.env</code> file,
-    or restart with <code>LLM_PROVIDER=mock</code> to use the offline demo.
+    <span>⚠ AI service not configured — set <code>GROQ_API_KEY</code> in <code>.env</code> or use <code>LLM_PROVIDER=mock</code></span>
   </div>
 
-  <!-- Fictional document banner — always visible -->
-  <div class="banner banner-disclaimer">
-    ⚠ <strong>FICTIONAL DOCUMENT. NOT LEGAL ADVICE.</strong> For demonstration purposes only.
-  </div>
-
+  <!-- Header -->
   <header>
-    <h1>Document Intake Assistant</h1>
-    <p class="subtitle">Personal Wishes Document — conversational intake</p>
+    <div class="header-brand">
+      <div class="header-logo" aria-hidden="true">📋</div>
+      <div>
+        <h1>Personal Wishes Assistant</h1>
+        <p class="subtitle">Secure conversational intake for your personal wishes document</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="disclaimer-pill">⚠ Demo only — not legal advice</span>
+      <button id="btn-new-session" class="btn btn-outline" title="Start a new session">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        New session
+      </button>
+    </div>
   </header>
 
   <main class="layout">
@@ -30,78 +39,84 @@
     <!-- ===== LEFT: Chat ===== -->
     <section class="panel panel-chat" aria-label="Conversation">
       <div class="panel-header">
-        <h2>Conversation</h2>
-        <button id="btn-new-session" class="btn btn-secondary" title="Start a new session">
-          New session
-        </button>
+        <div class="panel-title-group">
+          <span class="panel-icon">💬</span>
+          <h2>Conversation</h2>
+        </div>
+        <div id="progress-wrap" class="progress-wrap" title="Fields collected">
+          <span id="progress-label" class="progress-label">0 / 9 fields</span>
+          <div class="progress-bar-track">
+            <div id="progress-bar" class="progress-bar-fill" style="width:0%"></div>
+          </div>
+        </div>
       </div>
 
       <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-label="Chat messages">
-        <!-- Messages injected by JS -->
       </div>
 
-      <!-- Warnings area -->
+      <!-- Warnings -->
       <div id="warnings-area" class="warnings-area" hidden></div>
 
-      <!-- Pending conflict alert -->
+      <!-- Conflict -->
       <div id="conflict-area" class="conflict-area" hidden>
-        <strong>⚠ Conflict detected:</strong>
+        <span class="conflict-icon">⚡</span>
+        <strong>Conflict detected:</strong>
         <span id="conflict-text"></span>
       </div>
 
-      <!-- Loading indicator -->
-      <div id="loading" class="loading" hidden aria-live="polite">
-       
+      <!-- Typing indicator -->
+      <div id="loading" class="typing-indicator" hidden aria-live="polite">
+        <div class="typing-avatar">AI</div>
+        <div class="typing-dots">
+          <span></span><span></span><span></span>
+        </div>
       </div>
 
-      <!-- Input area -->
+      <!-- Input -->
       <form id="chat-form" class="chat-input-row" autocomplete="off" novalidate>
         <label for="chat-input" class="sr-only">Type your message</label>
         <textarea
           id="chat-input"
           class="chat-input"
-          rows="2"
-          placeholder="Type your answer…"
+          rows="1"
+          placeholder="Type your answer and press Enter…"
           maxlength="2000"
           aria-label="Your message"
         ></textarea>
-        <button type="submit" id="btn-send" class="btn btn-primary" aria-label="Send message">
-          Send
+        <button type="submit" id="btn-send" class="btn btn-send" aria-label="Send message">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </form>
     </section>
 
     <!-- ===== RIGHT: State + Draft + JSON ===== -->
     <section class="panel panel-preview" aria-label="Document preview">
-      <div class="tab-bar" role="tablist" aria-label="Preview tabs">
-        <button
-          id="tab-state"
-          class="tab tab-active"
-          role="tab"
-          aria-selected="true"
-          aria-controls="panel-state"
-        >State</button>
-        <button
-          id="tab-draft"
-          class="tab"
-          role="tab"
-          aria-selected="false"
-          aria-controls="panel-draft"
-        >Draft document</button>
-        <button
-          id="tab-json"
-          class="tab"
-          role="tab"
-          aria-selected="false"
-          aria-controls="panel-json"
-        >JSON</button>
+      <div class="panel-header">
+        <div class="panel-title-group">
+          <span class="panel-icon">📄</span>
+          <h2>Document Preview</h2>
+        </div>
+        <span id="preview-status" class="preview-status" aria-live="polite">Live draft</span>
       </div>
 
-      <!-- State tab -->
+      <div class="tab-bar" role="tablist" aria-label="Preview tabs">
+        <button id="tab-state" class="tab tab-active" role="tab" aria-selected="true"  aria-controls="panel-state">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Fields
+        </button>
+        <button id="tab-draft" class="tab" role="tab" aria-selected="false" aria-controls="panel-draft">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Draft
+        </button>
+        <button id="tab-json"  class="tab" role="tab" aria-selected="false" aria-controls="panel-json">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          JSON
+        </button>
+      </div>
+
+      <!-- State / Fields tab -->
       <div id="panel-state" class="tab-panel" role="tabpanel" aria-labelledby="tab-state">
-        <p class="hint">
-          Edit any field directly. Changes go through the same validation as chat messages.
-        </p>
+        <p class="hint"><span class="hint-dot" aria-hidden="true"></span> Your details stay editable — use <strong>Edit</strong> to make a direct change.</p>
         <table class="state-table" aria-label="Field values">
           <thead>
             <tr>
@@ -110,43 +125,39 @@
               <th scope="col">Status</th>
             </tr>
           </thead>
-          <tbody id="state-tbody">
-            <!-- Rows injected by JS -->
-          </tbody>
+          <tbody id="state-tbody"></tbody>
         </table>
       </div>
 
       <!-- Draft tab -->
       <div id="panel-draft" class="tab-panel" hidden role="tabpanel" aria-labelledby="tab-draft">
-        <div class="draft-toolbar">
-          <span class="draft-disclaimer">
-            ⚠ FICTIONAL DOCUMENT. NOT LEGAL ADVICE. For demonstration purposes only.
-          </span>
-          <button id="btn-download-txt" class="btn btn-secondary btn-sm" title="Download as .txt">
-            ⬇ Download .txt
+        <div class="toolbar">
+          <span class="toolbar-label">⚠ Fictional document — not legal advice</span>
+          <button id="btn-download-txt" class="btn btn-outline btn-sm">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download .txt
           </button>
         </div>
-        <div id="draft-content" class="draft-content" aria-label="Draft document text">
-          <p class="draft-placeholder">Loading draft…</p>
+        <div id="draft-content" class="draft-content" aria-label="Draft document">
+          <p class="placeholder-text">Your document will appear here as you answer questions.</p>
         </div>
       </div>
 
       <!-- JSON tab -->
       <div id="panel-json" class="tab-panel" hidden role="tabpanel" aria-labelledby="tab-json">
-        <div class="json-toolbar">
-          <span class="json-hint">Structured data extracted from the conversation.</span>
-          <button id="btn-download-json" class="btn btn-secondary btn-sm" title="Download as .json">
-            ⬇ Download .json
+        <div class="toolbar">
+          <span class="toolbar-label">Structured data extracted from the conversation</span>
+          <button id="btn-download-json" class="btn btn-outline btn-sm">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download .json
           </button>
         </div>
-        <pre id="json-content" class="json-content" aria-label="Structured JSON data">
-          <code>{}</code>
-        </pre>
+        <pre id="json-content" class="json-content" aria-label="Structured JSON data"><code>{}</code></pre>
       </div>
     </section>
 
   </main>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=20261009"></script>
 </body>
 </html>
