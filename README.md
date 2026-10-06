@@ -142,7 +142,7 @@ Edit `.env` to add your Groq API key:
 ```env
 LLM_PROVIDER=groq
 GROQ_API_KEY=your-groq-api-key
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=openai/gpt-oss-20b
 LLM_TIMEOUT_SECONDS=20
 ```
 
