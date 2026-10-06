@@ -96,7 +96,7 @@ document-intake-assistant/
     │       ├── base.py          # Extraction schemas, Protocol, error hierarchy
     │       ├── prompts.py       # Prompt templates and repair prompts
     │       ├── mock_client.py   # Offline regex-based heuristic extractor
-    │       └── groq_client.py   # Groq (llama-3.3-70b-versatile) client with repair retry
+    │       └── groq_client.py   # Groq (openai/gpt-oss-20b) client with repair retry
     └── tests/
         ├── conftest.py     # ScriptedLLMClient and fixture loaders
         ├── fixtures/       # 11 deterministic scenario fixtures
@@ -108,7 +108,7 @@ document-intake-assistant/
         ├── test_mock_client.py
         ├── test_turn.py
         ├── test_api.py
-        └── test_gemini_client.py
+        └── test_groq_client.py
 ```
 
 ---
@@ -117,7 +117,7 @@ document-intake-assistant/
 
 ### Prerequisites
 
-- Python 3.9+
+- Python 3.9+  (tested on 3.9.6)
 - pip
 - A [Groq API key](https://console.groq.com/keys) (free tier available)
 
@@ -277,7 +277,7 @@ The assistant opens with a greeting and asks for the user's full legal name. The
 
 **Input:** `My name is Jane Doe`
 
-The assistant extracts the full name, marks the **full_name** field as confirmed in the Fields tab, advances the progress bar to **1 / 9**, and asks the next question (home address).
+The assistant extracts the full name, marks the **full_name** field as **provided** in the Fields tab, advances the progress bar to **1 / 9**, and asks the next question (home address). The field status becomes **confirmed** only after the user reviews and confirms all fields at the end of the session.
 
 ![Case 2 – Single field extracted](docs/screenshots/02_name_entered.png)
 

@@ -38,7 +38,7 @@ This document outlines key technical considerations, architectural enhancements,
 - **Input Guardrails:**
   - Enforce strict byte limits on incoming payloads (2,000 characters per message, maximum 100KB per JSON payload) to prevent denial-of-service via massive payloads.
 - **Upstream LLM Quota Protection:**
-  - Track upstream Gemini token usage and request rates per tenant/user to prevent exhausting API limits.
+  - Track upstream Groq token usage and request rates per tenant/user to prevent exhausting API limits.
 
 ---
 
@@ -77,7 +77,7 @@ This document outlines key technical considerations, architectural enhancements,
 - **Output Validation as a Security Boundary:**
   - Even if prompt injection succeeds in altering LLM output, the code validation layer (`updates.py`) rejects any fields not in the `FieldPath` enum, enforces data types, and requires exact evidence matches.
 - **Content Security Policy (CSP):**
-  - Serve strict CSP headers: `default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://api.generativeai.google; object-src 'none'`.
+  - Serve strict CSP headers: `default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https://api.groq.com; object-src 'none'`.
   - Frontend continues using `textContent` for all DOM updates, eliminating DOM-based XSS vulnerabilities.
 
 ---
@@ -88,8 +88,8 @@ This document outlines key technical considerations, architectural enhancements,
   - Use `tenacity` for exponential backoff with jitter on transient network errors (HTTP 429, 502, 503).
   - Implement a circuit breaker (e.g., 5 consecutive failures opens circuit for 30s) to fail fast and notify users gracefully.
 - **Model Fallback Chain:**
-  - Primary: `gemini-2.5-flash` (fast, cost-efficient structured extraction).
-  - Fallback: Secondary provider (e.g., Anthropic Claude 3.5 Haiku or OpenAI GPT-4o-mini) if Gemini encounters an extended outage.
+  - Primary: `openai/gpt-oss-20b` on Groq (fast, low-latency structured extraction via Groq LPU).
+  - Fallback: Secondary provider (e.g., `llama-3.3-70b-versatile` on Groq, or Anthropic Claude 3.5 Haiku) if the primary model encounters an extended outage.
 - **Model Version Pinning:**
   - Pin exact model snapshots in production configurations to avoid unexpected behavior shifts from default alias updates.
 - **Automated Regression Testing:**
@@ -159,7 +159,7 @@ This document outlines key technical considerations, architectural enhancements,
 ## 13. CI/CD & Containerization
 
 - **Multi-Stage Dockerfile:**
-  - Build minimal, hardened Docker images running as non-privileged users (`python:3.11-slim`).
+  - Build minimal, hardened Docker images running as non-privileged users (`python:3.9-slim`).
 - **Automated CI Gates:**
   - Pre-commit hooks and GitHub Actions running `ruff`, `mypy --strict`, and `pytest`.
 - **Blue-Green / Canary Deployments:**

@@ -30,7 +30,7 @@ This log captures the AI collaboration process, key prompts, iterative decisions
 | **Iter 3** | Validation & Conflicts | Implemented strict evidence substring checking. Hardcoded deterministic resolution paths (`accept_proposed` vs `keep_existing`). Validated exact types. |
 | **Iter 4** | Turn Orchestrator | Integrated the complete lifecycle of one HTTP request into `process_turn`. Ensured that `LLMError` raised inside the extraction layer aborts mutation. |
 | **Iter 5** | Mock Mode & Testing | Finalized `mock_client.py` and `ScriptedLLMClient` with 11 JSON fixtures for 100% deterministic, offline pytest execution. |
-| **Iter 6** | Gemini → Groq Migration | Replaced `google-genai` SDK with the `openai` SDK pointed at Groq's OpenAI-compatible endpoint (`https://api.groq.com/openai/v1`). Added `groq_client.py` mirroring the `GeminiClient` interface with identical error mapping and repair retry logic. Updated `config.py` (`GROQ_API_KEY`, `GROQ_MODEL`), `main.py` provider branching, `.env`, `.env.example`, and `requirements.txt`. Root cause of the original Gemini failures: broken venv symlink after folder rename, invalid API key format (`AQ.` prefix instead of `AIza`), and non-existent model name `gemini-3.8-flash`. |
+| **Iter 6** | Gemini → Groq Migration | Replaced `google-genai` SDK with the `openai` SDK pointed at Groq's OpenAI-compatible endpoint (`https://api.groq.com/openai/v1`). Added `groq_client.py` mirroring the `GeminiClient` interface with identical error mapping and repair retry logic. Model used: `openai/gpt-oss-20b`. Updated `config.py` (`GROQ_API_KEY`, `GROQ_MODEL`), `main.py` provider branching, `.env`, `.env.example`, and `requirements.txt`. Root cause of the original Gemini failures: broken venv symlink after folder rename, invalid API key format (`AQ.` prefix instead of `AIza`), and non-existent model name `gemini-3.8-flash`. |
 | **Iter 7** | Frontend UI — Phase 1 | Developed a responsive two-column CSS layout, implemented inline editing for state fields, and integrated complete chat interactions. Fixed duplicate assistant message bug caused by `renderSession()` repopulating the full message list while `appendChatBubble()` also appended the reply. |
 | **Iter 8** | Frontend UI — Phase 2 | Added JSON tab with syntax-highlighted structured data view. Added download buttons for `.txt` (raw markdown) and `.json` (nested field object). Implemented lightweight markdown renderer in JS so assistant bubbles render `**bold**`, bullet lists, headings, and blockquotes instead of raw symbols. |
 | **Iter 9** | Frontend UI — Phase 3 (Polish) | Full visual redesign: Inter font, indigo/purple gradient header, avatar rows with timestamps in chat, animated three-dot typing indicator, pill-shaped send button, live progress bar showing fields collected, rounded card panels, thin custom scrollbars, and improved badge/state-table design. |
@@ -68,9 +68,9 @@ This log captures the AI collaboration process, key prompts, iterative decisions
   *Root cause:* The `.venv` was created when the project was in a different folder path (`document-intake-assistant/`). After the folder was renamed/moved, all symlinks inside `.venv/bin/` pointed to non-existent paths.
   *Correction:* Deleted the broken `.venv` and recreated it with `python3 -m venv .venv` in the new location.
 
-- **Invalid Groq Model Name in `.env`:**
-  *Initial AI behavior:* The `.env` carried over `GROQ_MODEL=openai/gpt-oss-20b` from the sample Groq code snippet, which is not a valid model on the Groq API.
-  *Correction:* Updated to `llama-3.3-70b-versatile`, a currently supported and capable Groq model.
+- **Invalid Groq Model Name copied from sample code:**
+  *Initial AI behavior:* The AI incorrectly flagged `openai/gpt-oss-20b` as "not a valid model on the Groq API" when suggesting to change it to `llama-3.3-70b-versatile`.
+  *Correction:* `openai/gpt-oss-20b` is a valid, officially supported model on GroqCloud (announced with day-zero support). The project uses `openai/gpt-oss-20b` throughout. The model name was sourced from the sample Groq integration code provided by the user and is correct.
 
 - **README Image Paths:**
   *Initial AI behavior:* When asked to add screenshot placeholders, the AI initially suggested inline HTML `<img>` tags with absolute paths.
