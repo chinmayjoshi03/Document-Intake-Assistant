@@ -125,10 +125,19 @@ document-intake-assistant/
 
 1. Navigate to the backend directory and set up a virtual environment:
 
+**macOS / Linux**
 ```bash
 cd document-intake-assistant/backend
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Windows (Command Prompt or PowerShell)**
+```powershell
+cd document-intake-assistant\backend
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
@@ -152,25 +161,47 @@ LLM_TIMEOUT_SECONDS=20
 
 ### 1. Offline / Mock Mode (No API key needed)
 
+**macOS / Linux**
 ```bash
 cd document-intake-assistant/backend
 source .venv/bin/activate
 LLM_PROVIDER=mock uvicorn app.main:app --reload --port 8000
 ```
 
+**Windows**
+```powershell
+cd document-intake-assistant\backend
+.venv\Scripts\activate
+set LLM_PROVIDER=mock && uvicorn app.main:app --reload --port 8000
+```
+
 Open http://localhost:8000 in your browser.
 
 ### 2. Groq Live Mode
 
+**macOS / Linux**
 ```bash
 cd document-intake-assistant/backend
 source .venv/bin/activate
 uvicorn app.main:app --reload --port 8000
 ```
 
+**Windows**
+```powershell
+cd document-intake-assistant\backend
+.venv\Scripts\activate
+uvicorn app.main:app --reload --port 8000
+```
+
 > The `GROQ_API_KEY` and `LLM_PROVIDER` are read from `.env` automatically. You can also pass them inline:
+>
+> macOS / Linux:
 > ```bash
 > GROQ_API_KEY="gsk_..." LLM_PROVIDER=groq uvicorn app.main:app --reload --port 8000
+> ```
+> Windows:
+> ```powershell
+> set GROQ_API_KEY=gsk_... && set LLM_PROVIDER=groq && uvicorn app.main:app --reload --port 8000
 > ```
 
 Open http://localhost:8000 in your browser.
@@ -181,9 +212,17 @@ Open http://localhost:8000 in your browser.
 
 Run the complete test suite (zero network calls required):
 
+**macOS / Linux**
 ```bash
 cd document-intake-assistant/backend
 source .venv/bin/activate
+pytest
+```
+
+**Windows**
+```powershell
+cd document-intake-assistant\backend
+.venv\Scripts\activate
 pytest
 ```
 
