@@ -119,7 +119,7 @@ document-intake-assistant/
 
 - Python 3.9+  (tested on 3.9.6)
 - pip
-- A [Groq API key](https://console.groq.com/keys) (free tier available)
+- A [Groq API key](https://console.groq.com/keys) (free tier available) — see the [step-by-step setup guide](docs/GROQ_API_KEY_SETUP.md)
 
 ### Installation
 
@@ -147,7 +147,7 @@ pip install -r requirements.txt
 cp ../.env.example .env
 ```
 
-Edit `.env` to add your Groq API key:
+Edit `.env` to add your Groq API key (see [how to get one](docs/GROQ_API_KEY_SETUP.md)):
 ```env
 LLM_PROVIDER=groq
 GROQ_API_KEY=your-groq-api-key
