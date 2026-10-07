@@ -116,23 +116,41 @@ def detect_conflicts(
                 safe_updates=safe,
             )
 
-    # Case B: proposing children_names while has_children is False
-    if cn is not None and FieldPath.CHILDREN_NAMES in proposed_map:
-        current_hc = state.get(FieldPath.HAS_CHILDREN).value
-        if current_hc is False:
-            conflicting = [u for u in proposed if u.path in (
-                FieldPath.CHILDREN_NAMES,
-            )]
-            safe = [u for u in proposed if u.path != FieldPath.CHILDREN_NAMES]
-            return ConflictResult(
-                has_conflict=True,
-                description=(
-                    "You provided children's names but previously said you have "
-                    "no children. Do you have children after all?"
-                ),
-                held_updates=conflicting,
-                safe_updates=safe,
-            )
+    # Case B: proposing children_names (and/or has_children=True) while
+    # the *stored* state says has_children=False.
+    #
+    # This covers two sub-cases:
+    #   B1 – LLM proposes only children_names (no has_children update)
+    #   B2 – LLM proposes both children_names AND has_children=True in the
+    #        same batch (e.g. "my daughter Emma and son Leo are beneficiaries"
+    #        after the user previously said "I have no children").
+    #        effective_has_children() would return True here, so we must look
+    #        at the *stored* state rather than the effective value.
+    stored_hc = state.get(FieldPath.HAS_CHILDREN).value
+    proposing_names = FieldPath.CHILDREN_NAMES in proposed_map and proposed_map[FieldPath.CHILDREN_NAMES].value
+    proposing_hc_true = (
+        FieldPath.HAS_CHILDREN in proposed_map
+        and proposed_map[FieldPath.HAS_CHILDREN].value is True
+    )
+
+    if stored_hc is False and (proposing_names or proposing_hc_true):
+        conflicting = [
+            u for u in proposed
+            if u.path in (FieldPath.HAS_CHILDREN, FieldPath.CHILDREN_NAMES)
+        ]
+        safe = [
+            u for u in proposed
+            if u.path not in (FieldPath.HAS_CHILDREN, FieldPath.CHILDREN_NAMES)
+        ]
+        return ConflictResult(
+            has_conflict=True,
+            description=(
+                "You provided children's names but previously said you have "
+                "no children. Do you have children after all?"
+            ),
+            held_updates=conflicting,
+            safe_updates=safe,
+        )
 
     return ConflictResult(
         has_conflict=False,

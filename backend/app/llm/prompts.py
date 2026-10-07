@@ -43,6 +43,17 @@ EXTRACTION RULES:
    Never infer, guess, or fill in surnames, addresses, or relationships that were not stated.
    If you are unsure, put the field under "ambiguities" with a clarifying_question instead of in "updates".
 
+   ADDRESS EXTRACTION (home_address field):
+   - The value_text must contain ONLY the address itself — strip filler phrases like
+     "I live in", "I live at", "My address is", "I'm based in", etc.
+     Example: user says "I live in Hinjewadi" → value_text = "Hinjewadi".
+   - If the address is only a neighbourhood, suburb, city, or single word (e.g. "Hinjewadi",
+     "downtown", "New York") with no street number, street name, or postal code, treat it as
+     incomplete. Put it in "ambiguities" with confidence="low" and ask for the full postal
+     address (street number, street name, city, postal code, country).
+   - Only accept as a confirmed update when the address contains at least a street-level detail
+     OR the user explicitly says that is their full address.
+
 2. Use focus_field to interpret short answers such as "yes", "no", "none", or "same as above".
    For example: if focus_field is "has_children" and the user says "no", produce an update for
    has_children with value_bool=false.

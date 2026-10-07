@@ -129,6 +129,10 @@ def _build_reply(
     # Acknowledgement must not end with a question mark (it should be a statement)
     if ack.endswith("?"):
         ack = ""
+    # For off-topic messages (greetings, chitchat, etc.) suppress the ack so the
+    # assistant doesn't engage with the off-topic content — just re-ask the question.
+    if response.intent == "other":
+        ack = ""
 
     parts: List[str] = []
     if ack:

@@ -314,7 +314,7 @@ The assistant opens with a greeting and asks for the user's full legal name. The
 
 ### Case 2 — Single field extracted (name only)
 
-**Input:** `My name is Jane Doe`
+**Input:** `My name is Chinmay Joshi`
 
 The assistant extracts the full name, marks the **full_name** field as **provided** in the Fields tab, advances the progress bar to **1 / 9**, and asks the next question (home address). The field status becomes **confirmed** only after the user reviews and confirms all fields at the end of the session.
 
@@ -338,6 +338,8 @@ The assistant extracts three fields at once — **full_name**, **home_address**,
 **Input (second):** `My daughter Emma and son Leo are my beneficiaries`
 
 The orange **Conflict detected** banner appears below the chat, showing that the new statement contradicts the previously recorded `has_children = false`. The field is not updated until the conflict is resolved.
+
+> Note: the conflict fires when the second message causes the LLM to propose `children_names` and/or `has_children = true` against a stored `has_children = false`. The banner reads: *"You provided children's names but previously said you have no children. Do you have children after all?"*
 
 ![Case 4 – Conflict detected](docs/screenshots/04_conflict_detected.png)
 
